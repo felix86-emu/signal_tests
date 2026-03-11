@@ -3,8 +3,6 @@
 #include <unistd.h>
 #include "common.h"
 
-bool all_ok = false;
-
 void signal_handler(int sig, siginfo_t* info, void* ctx) {
     ucontext_t* uc = (ucontext_t*)ctx;
     ASSERT(!sigismember(&uc->uc_sigmask, SIGURG));
