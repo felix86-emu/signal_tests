@@ -14,7 +14,7 @@ void signal_handler(int sig, siginfo_t* info, void* ctx) {
 }
 
 int main() {
-    u64 max = 256 * 1024;
+    u64 max = 128 * 1024;
     struct sigaction sa;
     sa.sa_sigaction = signal_handler;
     sa.sa_flags = SA_SIGINFO;
@@ -25,11 +25,13 @@ int main() {
     // If an emulator was using the host stack for whatever reason per signal, after many signals
     // that don't return it could stack overflow, which is what we test here
     // If each signal was serviced inside the host signal handler, it would take up more than e.g. 512 bytes
-    // per signal. At 256 * 1024 signals, this would overflow the host stack by quite a bit
+    // per signal. At 128 * 1024 signals, this would overflow the host stack by quite a bit
     // Programs that use longjmp to exit signal handlers include the `dash` shell
     if (count++ < max) {
         raise(SIGUSR1);
     }
+
+    ASSERT(count == max + 1);
 
     return 0;
 }

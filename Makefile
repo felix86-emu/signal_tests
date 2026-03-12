@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -O2 -s
+CXXFLAGS := -O2 -s -masm=intel
 
 SRC_DIR := src
 BUILD_DIR := build
