@@ -14,7 +14,6 @@ void signal_handler(int sig, siginfo_t* info, void* ctx) {
     ucontext_t* uctx = (ucontext_t*)ctx;
     stack_t old_stack;
     sigaltstack(nullptr, &old_stack);
-    printf("Got signal %d %lx %lx %lx\n", sig, uctx->uc_mcontext.gregs[REG_RSP], uctx->uc_stack.ss_sp, new_stack);
     signal_count++;
     bool was_on_alt_stack = uctx->uc_mcontext.gregs[REG_RSP] > (u64)new_stack && uctx->uc_mcontext.gregs[REG_RSP] - (u64)new_stack <= 1024 * 1024;
     if (signal_count == 1) {
