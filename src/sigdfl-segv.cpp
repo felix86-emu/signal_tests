@@ -16,7 +16,6 @@ int main(int argc, char* const* argv) {
         ASSERT(false);
     }
 
-    // Parent process
     int status = 0;
     pid_t w = waitpid(pid, &status, 0);
 
