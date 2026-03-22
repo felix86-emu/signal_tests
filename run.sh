@@ -7,6 +7,9 @@ if [[ ! -d "$BUILD_DIR" ]]; then
     exit 1
 fi
 
+# Disable core dumps as some processes may purposefully crash
+ulimit -c 0
+
 for test in "$BUILD_DIR"/*; do
     if [[ -x "$test" && -f "$test" ]]; then
         name=$(basename "$test")
