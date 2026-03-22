@@ -53,12 +53,12 @@ void signal_handler(int sig, siginfo_t* info, void* ctx) {
 }
 
 int main() {
-    set_df(true);
     struct sigaction sa;
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = signal_handler;
     sigemptyset(&sa.sa_mask);
     ASSERT(sigaction(SIGUSR1, &sa, nullptr) == 0);
+    set_df(true); // make it happen as late as possible since this is abi breaking
     raise(SIGUSR1);
     bool df = get_df();
     ASSERT(!df);
