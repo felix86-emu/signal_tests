@@ -20,7 +20,13 @@ void signal_handler(int sig, siginfo_t* info, void* ctx) {
     u64 full = -1ull;
     u64 kill_bit = 1ull << (SIGKILL - 1);
     u64 stop_bit = 1ull << (SIGSTOP - 1);
-    ASSERT(uctx->uc_sigmask.__val[0] == (full & ~(kill_bit | stop_bit)));
+    u64 mask;
+#ifdef __x86_64__
+    mask = uctx->uc_sigmask.__val[0];
+#else
+    mask = uctx->uc_sigmask.__val[0] | ((u64)uctx->uc_sigmask.__val[1] << 32);
+#endif
+    ASSERT(mask == (full & ~(kill_bit | stop_bit)));
 }
 
 int main() {
