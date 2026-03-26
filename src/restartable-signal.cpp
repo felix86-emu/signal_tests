@@ -1,6 +1,7 @@
 #include <atomic>
 #include <pthread.h>
 #include <semaphore.h>
+#include <syscall.h>
 #include <unistd.h>
 #include "common.h"
 
@@ -10,6 +11,19 @@ bool signal_got = false;
 
 void signal_handler(int sig, siginfo_t* info, void* ctx) {
     ASSERT(gettid() == child_tid);
+    // Since this is a restartable syscall, the return address is the syscall instruction itself
+    // RAX is not changed and has the original value, which is the syscall number
+    ucontext_t* uctx = (ucontext_t*)ctx;
+    u8* rip = (u8*)uctx->uc_mcontext.gregs[REG_RIP];
+#ifdef __x86_64__
+    ASSERT(*(rip) == 0x0f);
+    ASSERT(*(rip + 1) == 0x05);
+    ASSERT(uctx->uc_mcontext.gregs[REG_RAX] == SYS_futex);
+#else
+    ASSERT(*(rip) == 0xcd);
+    ASSERT(*(rip + 1) == 0x80);
+    ASSERT(uctx->uc_mcontext.gregs[REG_RAX] == SYS_futex);
+#endif
     signal_got = true;
 }
 
