@@ -7,7 +7,8 @@
 
 sem_t sem;
 std::atomic_int child_tid = 0;
-bool signal_got = false;
+std::atomic_int signals_handled = 0;
+std::atomic_bool signal_got = false;
 
 void signal_handler(int sig, siginfo_t* info, void* ctx) {
     ASSERT(gettid() == child_tid);
@@ -16,15 +17,14 @@ void signal_handler(int sig, siginfo_t* info, void* ctx) {
     ucontext_t* uctx = (ucontext_t*)ctx;
     u8* rip = (u8*)uctx->uc_mcontext.gregs[REG_RIP];
 #ifdef __x86_64__
-    ASSERT(*(rip) == 0x0f);
-    ASSERT(*(rip + 1) == 0x05);
-    ASSERT(uctx->uc_mcontext.gregs[REG_RAX] == SYS_futex);
+    bool at_syscall = *(rip) == 0x0f && *(rip + 1) == 0x05;
 #else
-    ASSERT(*(rip) == 0xcd);
-    ASSERT(*(rip + 1) == 0x80);
-    ASSERT(uctx->uc_mcontext.gregs[REG_RAX] == SYS_futex);
+    bool at_syscall = *(rip) == 0xcd && *(rip + 1) == 0x80;
 #endif
-    signal_got = true;
+    if (at_syscall && uctx->uc_mcontext.gregs[REG_RAX] == SYS_futex) {
+        signal_got = true;
+    }
+    signals_handled++;
 }
 
 void* thread_main(void*) {
@@ -37,8 +37,6 @@ void* thread_main(void*) {
 }
 
 int main() {
-    sigset_t full;
-    sigfillset(&full);
     sem_init(&sem, false, 1);
     struct sigaction sa;
     sa.sa_flags = SA_SIGINFO | SA_RESTART;
@@ -51,18 +49,28 @@ int main() {
     pthread_t thread;
     ASSERT(pthread_create(&thread, nullptr, thread_main, nullptr) == 0);
 
-    // Wait for child to deadlock...
-    usleep(200000);
+    for (int attempt = 0; attempt < 3000 && !signal_got; attempt++) {
+        if (child_tid == 0) {
+            usleep(10000);
+            continue;
+        }
 
-    // Signal will land on child, sem_wait will not return EINTR as it is restartable
-    tgkill(getpid(), child_tid, SIGUSR1);
+        int handled = signals_handled;
+        // Signal will land on child, sem_wait will not return EINTR as it is restartable
+        ASSERT(tgkill(getpid(), child_tid, SIGUSR1) == 0);
+        for (int wait = 0; wait < 1000 && signals_handled == handled; wait++) {
+            usleep(1000);
+        }
 
-    // Wait for child to receive...
-    usleep(100000);
+        if (!signal_got) {
+            usleep(10000);
+        }
+    }
+
+    ASSERT(signal_got);
 
     ASSERT(sem_post(&sem) == 0);
 
     ASSERT(pthread_join(thread, nullptr) == 0);
-    ASSERT(signal_got);
     return 0;
 }

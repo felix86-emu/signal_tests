@@ -42,12 +42,15 @@ extern "C" void __attribute__((naked)) body() {
     )");
 }
 
-void __attribute__((naked)) run() {
+void __attribute__((naked)) run(u32 tf) {
 #ifdef __x86_64__
     asm(R"(
+        test edi, edi
+        jz 1f
         pushf
-        or dword ptr [rsp], 0x100
+        or dword ptr [rsp], edi
         popf
+        1:
         nop
         call body
         pushf
@@ -59,9 +62,13 @@ void __attribute__((naked)) run() {
     )");
 #else
     asm(R"(
+        mov eax, [esp + 4]
+        test eax, eax
+        jz 1f
         pushf
-        or dword ptr [esp], 0x100
+        or dword ptr [esp], eax
         popf
+        1:
         nop
         call body
         pushf
@@ -82,7 +89,11 @@ int main() {
     ASSERT(sigaction(SIGTRAP, &sa, nullptr) == 0);
     for (int i = 0; i < 8; i++) {
         count = 0;
-        run();
+        for (int j = 0; j < 1000; j++) {
+            run(0);
+        }
+        ASSERT(count == 0);
+        run(0x100);
         ASSERT(get_tf() == false);
         ASSERT(count == 10);
         for (int j = 0; j < 1000; j++) {
